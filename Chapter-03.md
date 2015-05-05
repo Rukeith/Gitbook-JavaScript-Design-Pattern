@@ -196,3 +196,183 @@ thePlotThickens 在作為變數傳遞時沒有使用括號。因為並不想立�
 
 ##callback function
 函式是物件，所以也可以作為回傳值。函式可以回傳另一個更特殊化的函式，或根據輸入隨需要建立另一個函式。
+
+	var setup = function () {
+		alert(1);
+		return function () {
+			alert(2);
+		};
+	};
+	
+	var my = setup();	// alert 1
+	my();	// alert 2
+	
+setup() 包裝了回傳函式，會產生一個 closure (閉包)。可以用這個 closure 來儲存一些 private 資料，其只能被回傳的函式存取。
+
+	var setup = function () {
+		var count = 0;
+		return function () {
+			return (count += 1);
+		};
+	};
+	
+	var next = setup();
+	next(); // 1
+	next(); // 2
+	next(); // 3
+	
+#立即函式 immediate function pattern
+一種語法，讓你可以在定義函式時立刻執行。本質上是函式表示式，由下列部分組成。
+
+* 用函式表示式來定義函式
+* 在函式最後加上一組括號，會讓函式立刻執行
+* 將函式包在括號內 (如果不將函式賦值給一個變數才需要)  
+
+		(function () {
+			alert('watch out!');
+		}());
+提供一種作用域的*沙盒*給初始化的程式碼，這些工作只需執行一次。
+
+###立即函式-參數
+
+	(function (who, when) {
+		console.log("I met " + who + " on " + when);
+	}("Joe Black", new Date()));
+一般來說，全域物件會作為參數傳遞給立即函式，讓內部可以存取而不必使用 window 物件。注意：不該傳遞太多變數給立即函式，容易造成理解的負擔
+
+###立即函式-回傳值
+立即函式的回傳值可以賦值給變數。
+
+	var result = (function () {
+		return 2 + 2;
+	}());
+另一種具有相同效果的實現方式，是省略掉包著函式的括號。因為將回傳值賦值給變數時不需要這些括號。
+
+	var result = function () {
+		return 2 + 2;
+	}();
+	
+	or
+	
+	var result = (function () {
+		return 2 + 2;
+	})();
+	
+#立即物件初始化
+還有一種方式可以避免全域作用域的污染，類似於立即函式模式。此模式使用一個物件，其帶有一個 init() 方法。當物件建立之後，就立即執行此方法。此 init 方法及負責所有初始化工作。
+
+	({
+		maxwidth: 600,
+		maxheight: 400,
+		gimmeMax: function () {
+			return this.maxwidth + "x" + this.maxheight;
+		},
+		init: function () {
+			console.log(this.gimmeMax());
+		}
+	}).init();
+	
+	兩種寫法都可使用
+	({...}).init();
+	({...}.init());
+	
+此模式的優點和立即函式模式一樣，當執行一次性的初始化工作時，可以保護全域命名空間。缺點是大多數的最小化工具無法有效的最小化這種模式，因為程式碼被包在物件裡。private 屬性和方法不會被重新命名為較短的名稱。
+
+#設定值物件
+傳遞許多參數給函式有很多不方便，有一種簡單的方式是讓所有參數替換成唯一一個，且讓此參數為一個物件。
+
+	var conf = {
+		username: 'batman',
+		first: 'Bruce',
+		last: 'Wayne'
+	};
+	
+	addPerson(conf);
+	
+優點：
+
+* 不需要記住參數和它們順序
+* 可以安全地掠過選用參數
+* 更容易閱讀和維護
+* 更容易新增和移除參數
+
+缺點：
+
+* 需要知道參數的名稱
+* 設定值物件的屬性名稱無法被最小化
+
+#Curry
+此部分會討論 currying 和部分函式應用(partial function application)。但要先討論函式應用(function application)。
+
+##函式的應用
+在一些程式語言中，函式並不是被 call or invoked，而是被 apply。
+
+	var sayHi = function (who) {
+		return "Hello" + (who ? ", " + who : "") + "!";
+	};
+	
+	// 呼叫函式
+	sayHi(); // Hello
+	sayHi('world'); // Hello, world!
+	
+	// 應用函式
+	sayHi.apply(null, ["hello"]); // Hello, hello!
+
+可以看到呼叫和應用的結果都相同。apply() 需要兩個參數：第一是物件，用來綁定至函式內部的 this，第二個是參數陣列，會成為函式內可使用的 arguments 物件。如果第一個參數是 null，則 this 會指向全域物件。
+
+	var alien = {
+		sayHi: function (who) {
+			return "Hello" + (who ? ", " + who : "") + "!";
+		}
+	};
+	
+	alien.sayHi('world'); // "Hello, world!"
+	sayHi.apply(alien, ['humans']); // "Hello, humans!"
+	
+	此段程式碼就會把內部的 this 指向 alien
+
+還有一種 call() 方法。但只接受一個參數。
+
+	sayHi.apply(alien, ["humans"]);
+	sayHi.call(alien, "humans");
+	
+##部分應用
+某些情況下，不一定需要全部的參數。
+
+	var add = function (x, y) {
+		return x + y;
+	};
+	// 全應用
+	add.apply(null, [5, 4]);
+	
+	// 部分應用
+	var newadd = add.partialApply(null, [5]);
+	newadd.apply(null, [4]);
+	
+部分應用給予我們另一個函式，而該函式可以在之後用別的參數呼叫。讓函式可以理解Ｋ並處理部分應用的過程稱為 currying
+
+##Currying
+Currying 命名來自 Haskell Curry，是一種轉換過程。
+
+	// 一個已 Curry 化的 add()
+	// 可接受只傳遞一部分的參數
+	function add(x, y) {
+		var oldx = x, oldy = y;
+		if (typeof oldy === "undefined") {
+			return function (new) {
+				return oldx + newy;
+			};
+		}
+		// 全應用
+		return x + y;
+	}
+	
+	// 測試
+	typeof add(5); // function
+	add(3)(4); // 7
+	
+	// 建立一個新函式並保存起來
+	var add2000 = add(2000);
+	add2000(10); // 2010
+	
+此例中，當第一次呼叫 add() 會對其回傳的內部函式產生一個 closure。這個 closure 會將原本傳進來的 x 和 y 存進 private 變數 oldx 和 oldy。
