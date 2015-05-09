@@ -375,4 +375,85 @@ Currying 命名來自 Haskell Curry，是一種轉換過程。
 	var add2000 = add(2000);
 	add2000(10); // 2010
 	
-此例中，當第一次呼叫 add() 會對其回傳的內部函式產生一個 closure。這個 closure 會將原本傳進來的 x 和 y 存進 private 變數 oldx 和 oldy。
+此例中，當第一次呼叫 add() 會對其回傳的內部函式產生一個 closure。這個 closure 會將原本傳進來的 x 和 y 存進 private 變數 oldx 和 oldy。oldx 在內部函式運算時會使用到。我們可以使用更簡潔的方式，因為 x 其實有隱含地儲存在 closure 裡面。
+
+	function add(x, y) {
+		if (typeof y === "undefined") {
+			return function (y) {
+				return x + y;
+			};
+		}
+		return x + y;
+	}
+	
+**在這裡介紹一個泛用的函式**
+
+	function schonfinkelize(fn) {
+		var slice = Array.prototype.slice,
+			stored_args = slice.call(arguments, 1);
+			
+		return function () {
+			var new_args = slice.call(arguments),
+				args = stored_args.concat(new_args);
+				
+			return fn.apply(null, args);
+		};	
+	}
+
+> 　　因為 arguments 不是真正的陣列，因此需要從 Array.prototype 借用 slice() 方法，來幫助我們將 arguments 轉換成真的陣列。第一次呼叫 schonfinkelize() 會將 slice() 方法的參考儲存在 private 成員 slice，同時將呼叫時的參數去掉第一個後儲存到 stored_args，因為第一個參數是準備要 curry 化的函式 fn。回傳一個新的函式  
+> 　　當呼叫新函式時，它可以透過 closure 存取儲存好的參數 stored_args 和 slice 參考。新函式將新參數 new_args 合併至舊的部分 stored_args，接著用他們原本的函式 fn
+
+	function add(x, y) {
+		return x + y;
+	}
+	
+	// curry 化此函式，並得到一個新函式
+	var newadd = schonfinkelize(add, 5);
+	newadd(4); // 9
+	
+	// 另一種選擇一直接呼叫產生的新函式
+	schonfinkelize(add, 6)(7); // 13
+	
+	/*不限於單個參數的轉換，也可 curry 化多次*/
+	function add(a, b, c, d, e) {
+		return a + b + c + d + e;
+	}
+	
+	// 可以轉換任何數量的參數
+	schonfinkelize(add, 1, 2, 3)(5, 5); // 16
+	
+	// 兩步驟的 currying 也行
+	var addOne = schonfinkelize(add, 1);
+	addOne(10, 10, 10, 10); // 41
+	var addSix = schonfinkelize(addOne, 2, 3);
+	addSix(5, 5); // 16
+	
+###Currying 使用時機
+當發現呼叫某函式時，傳入的參數大多相同。
+
+
+#Summery
+函式的語法包括了
+
+* 具名函式表示式
+* 匿名函式
+* 函式宣告式
+
+API 模式
+
+* callback pattern：將函式作為參數傳遞
+* 設定值物件：幫助你讓函式的參數數量在控制內
+* 回傳函式：函式的回傳值是另一個函式
+* Curry 化：用現有的函式加上部分的參數列產生新的函式
+
+初始化模式
+
+* 立即函式：在函式定義之後立即執行
+* 立即物件初始化：結構化的初始工作背包近一個匿名物件中，且此物件會提供一個將立即呼叫的方法
+* 初始階段的分支：在初始階段執行唯一一次的分支，而不是在應用程式的生命週期中執行多次
+
+效能模式
+
+* 記憶模式：使用函式屬性暫存，於是運算過得值不必重複運算
+* 自我定義的函式：函式使用新的定義覆蓋自己，於是可以在第二次之後的呼叫省下一些工作
+	
